@@ -151,6 +151,10 @@ install(DIRECTORY include/
         DESTINATION include
 )
 
+install(FILES README.md
+        DESTINATION share/${PROJECT_NAME}
+)
+
 ament_export_include_directories(include)
 ament_export_dependencies(rclcpp rclcpp_action std_msgs ament_index_cpp audio_io_interface common_cpp)
 ament_export_targets(audio_ioTargets HAS_LIBRARY_TARGET)
