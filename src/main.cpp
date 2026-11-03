@@ -9,14 +9,14 @@
 int main(const int argc, char** argv) {
     rclcpp::init(argc, argv);
 
-    const auto node = std::make_shared<rclcpp::Node>("io", "/audio");
+    const auto node = std::make_shared<rclcpp::Node>("audio_io");
     // rcutils 输出处理器是进程级对象，只能在可执行文件入口安装一次。
     if (!logging::ros::RclcppLogHandler::try_init_from_node(node)) {
         return 1;
     }
 
     try {
-        auto audio = std::make_shared<audio_io::AudioIoNode>(node);
+        const auto audio = std::make_shared<audio_io::AudioIoNode>(node);
         audio->start();
 
         rclcpp::executors::SingleThreadedExecutor executor;
