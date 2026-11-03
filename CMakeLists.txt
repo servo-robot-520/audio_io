@@ -122,6 +122,12 @@ if (BUILD_EXE)
     endif ()
 endif ()
 
+if (BUILD_TESTING)
+    find_package(ament_cmake_gtest REQUIRED)
+    ament_add_gtest(test_wav_decoder test/test_wav_decoder.cpp)
+    target_link_libraries(test_wav_decoder audio_io)
+endif ()
+
 install(TARGETS audio_io
         EXPORT audio_ioTargets
         ARCHIVE DESTINATION lib
