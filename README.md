@@ -5,7 +5,7 @@
 `audio_io` 是文档 [`docs/microduck-audio-architecture.zh-CN.md`](../../docs/microduck-audio-architecture.zh-CN.md)
 中 `/audio/io` 的 ROS 2 实现：
 
-- `audio_io` 静态库：ALSA 播放/采集、WAV 解码、混音、优先级与抢占、实时 PCM 流；
+- `audio_io` 静态库：ALSA 播放/采集、WAV/MP3 解码、混音、优先级与抢占、实时 PCM 流；
 - `audio_io_node` 可执行文件：组合 `audio_io::AudioIoNode`，对外提供话题、服务与 action。
 
 `AudioIoNode` 采用组合而不是继承：构造函数接收外部 `rclcpp::Node::SharedPtr`，其他功能包可以把它嵌入自己的节点并共享执行器。
@@ -20,7 +20,7 @@ source /opt/ros/humble/setup.bash
 colcon build --base-paths src --packages-select audio_io_interface audio_io
 ```
 
-`audio_io` 依赖 `common_cpp` 和 `audio_io_interface`，需要先构建/安装它们。
+`audio_io` 依赖 `common_cpp`、`audio_io_interface`、ALSA 和 `libmpg123`，需要先构建/安装它们。
 
 ### 普通 CMake / CLion
 
@@ -103,5 +103,6 @@ Linux 音频栈的最底层是 ALSA：
 ## 支持范围
 
 - WAV：PCM 8/16/24/32-bit、float 32/64-bit、WAVE_FORMAT_EXTENSIBLE；
+- MP3：基于 `libmpg123`，输出原生采样率/声道数后统一下混到 48 kHz 单声道；
 - 实时流：`s16le` / `f32le`，单/多声道，内部下混并重采样到 48 kHz 单声道；
-- MP3/FLAC/OGG 暂未内置解码器；需要时可在 `WavDecoder` 前增加解码后端。
+- FLAC/OGG 暂未内置解码器；需要时可在 `AudioDecoder` 中增加解码后端。

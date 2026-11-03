@@ -45,6 +45,7 @@ find_package(std_msgs REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(ALSA REQUIRED alsa)
+pkg_check_modules(MPG123 REQUIRED libmpg123)
 
 # 普通 colcon/独立 CMake 构建时，依赖包已经安装；CLion 源码聚合构建则直接
 # 使用本次构建树中的 target。
@@ -56,14 +57,18 @@ endif ()
 # 可复用的音频引擎库。其他功能包可以链接 audio_io，并传入自己的 rclcpp::Node。
 add_library(audio_io STATIC
         include/audio_io/alsa_sink.hpp
+        include/audio_io/audio_decoder.hpp
         include/audio_io/audio_format.hpp
         include/audio_io/audio_io_node.hpp
         include/audio_io/capture_engine.hpp
+        include/audio_io/mp3_decoder.hpp
         include/audio_io/playback_engine.hpp
         include/audio_io/wav_decoder.hpp
         src/alsa_sink.cpp
+        src/audio_decoder.cpp
         src/audio_io_node.cpp
         src/capture_engine.cpp
+        src/mp3_decoder.cpp
         src/playback_engine.cpp
         src/wav_decoder.cpp
 )
@@ -73,8 +78,8 @@ target_include_directories(audio_io PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
-target_include_directories(audio_io PRIVATE ${ALSA_INCLUDE_DIRS})
-target_link_libraries(audio_io PUBLIC ${ALSA_LIBRARIES})
+target_include_directories(audio_io PRIVATE ${ALSA_INCLUDE_DIRS} ${MPG123_INCLUDE_DIRS})
+target_link_libraries(audio_io PUBLIC ${ALSA_LIBRARIES} ${MPG123_LIBRARIES})
 ament_target_dependencies(audio_io PUBLIC
         rclcpp
         rclcpp_action

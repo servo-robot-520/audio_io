@@ -12,8 +12,8 @@
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
+#include "audio_io/audio_decoder.hpp"
 #include "audio_io/audio_format.hpp"
-#include "audio_io/wav_decoder.hpp"
 #include "audio_io_interface/msg/audio_clip.hpp"
 #include "audio_io_interface/msg/audio_event.hpp"
 #include "common_cpp/logging/log_interface/log_macro.hpp"
@@ -141,7 +141,7 @@ namespace audio_io {
         if (path.empty()) {
             return false;
         }
-        auto decoded = WavDecoder::decode_file(path);
+        auto decoded = AudioDecoder::decode_file(path);
         if (!decoded) {
             error = decoded.error();
             return false;
