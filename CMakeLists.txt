@@ -131,6 +131,11 @@ if (BUILD_TESTING)
     find_package(ament_cmake_gtest REQUIRED)
     ament_add_gtest(test_wav_decoder test/test_wav_decoder.cpp)
     target_link_libraries(test_wav_decoder audio_io)
+
+    ament_add_gtest(test_mp3_decoder test/test_mp3_decoder.cpp)
+    target_link_libraries(test_mp3_decoder audio_io)
+    target_compile_definitions(test_mp3_decoder PRIVATE
+            TEST_MP3_FILE="${CMAKE_CURRENT_SOURCE_DIR}/test/data/robot_start_3s.mp3")
 endif ()
 
 install(TARGETS audio_io
