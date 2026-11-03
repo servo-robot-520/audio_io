@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "audio_io_interface/ros_msg.hpp"
 #include "common_cpp/logging/log_interface/log_macro.hpp"
 
 namespace audio_io {
@@ -152,34 +153,39 @@ namespace audio_io {
         const auto stream_qos = rclcpp::QoS(rclcpp::KeepLast(2)).best_effort();
         const auto capture_qos = rclcpp::QoS(rclcpp::KeepLast(2)).best_effort();
 
-        state_publisher_ = node_->create_publisher<AudioStateMsg>("~/state", state_qos);
-        event_publisher_ = node_->create_publisher<AudioEventMsg>("~/event", event_qos);
-        capture_publisher_ = node_->create_publisher<AudioStreamMsg>("~/capture", capture_qos);
+        state_publisher_ = node_->create_publisher<AudioStateMsg>(
+            std::string{audio_io_interface::kPrivateTopicState}, state_qos);
+        event_publisher_ = node_->create_publisher<AudioEventMsg>(
+            std::string{audio_io_interface::kPrivateTopicEvent}, event_qos);
+        capture_publisher_ = node_->create_publisher<AudioStreamMsg>(
+            std::string{audio_io_interface::kPrivateTopicCapture}, capture_qos);
 
         play_subscription_ = node_->create_subscription<AudioClipMsg>(
-            "~/play", play_qos, [this](const AudioClipMsg::SharedPtr message) {
+            std::string{audio_io_interface::kPrivateTopicPlay}, play_qos,
+            [this](const AudioClipMsg::SharedPtr message) {
                 handle_play(message);
             });
         stream_subscription_ = node_->create_subscription<AudioStreamMsg>(
-            "~/stream", stream_qos, [this](const AudioStreamMsg::SharedPtr message) {
+            std::string{audio_io_interface::kPrivateTopicStream}, stream_qos,
+            [this](const AudioStreamMsg::SharedPtr message) {
                 handle_stream(message);
             });
 
         stop_service_ = node_->create_service<audio_io_interface::srv::StopAudio>(
-            "~/stop",
+            std::string{audio_io_interface::kPrivateServiceStop},
             [this](const std::shared_ptr<audio_io_interface::srv::StopAudio::Request> request,
                    std::shared_ptr<audio_io_interface::srv::StopAudio::Response> response) {
                 handle_stop(request, std::move(response));
             });
         volume_service_ = node_->create_service<audio_io_interface::srv::SetVolume>(
-            "~/set_volume",
+            std::string{audio_io_interface::kPrivateServiceSetVolume},
             [this](const std::shared_ptr<audio_io_interface::srv::SetVolume::Request> request,
                    std::shared_ptr<audio_io_interface::srv::SetVolume::Response> response) {
                 handle_set_volume(request, std::move(response));
             });
 
         action_server_ = rclcpp_action::create_server<PlayClipAction>(
-            node_, "~/play_clip",
+            node_, std::string{audio_io_interface::kPrivateActionPlayClip},
             [this](const rclcpp_action::GoalUUID& uuid,
                    std::shared_ptr<const PlayClipAction::Goal> goal) {
                 return handle_goal(uuid, std::move(goal));
