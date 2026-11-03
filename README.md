@@ -36,7 +36,7 @@
 - `AudioClip` 文件播放：增益、循环、起始偏移、时长限制；
 - `AudioStream` 实时 PCM：`s16le` / `f32le`，单/多声道，自动重采样到 48 kHz 单声道；
 - ALSA 播放/采集、欠载恢复、设备丢失/恢复事件；
-- `/audio/io/capture` 麦克风 PCM 发布；
+- `/audio_io/capture` 麦克风 PCM 发布；
 - 播放状态、事件、停止、音量服务与 `PlayClip` action。
 
 不包含：
@@ -110,29 +110,49 @@ ros2 run audio_io audio_io_node --ros-args \
   -p capture.enabled:=false
 ```
 
-节点默认全名是 `/audio/io`。
+节点默认全名是 `/audio_io`。
+
+launch 支持外部传入配置文件和 namespace：
+
+```bash
+# 只换配置
+ros2 launch audio_io audio_io.launch.py config:=/path/to/audio_io.yaml
+
+# 只加 namespace，节点变成 /robot1/audio_io
+ros2 launch audio_io audio_io.launch.py namespace:=robot1
+
+# 两者都传
+ros2 launch audio_io audio_io.launch.py \
+  config:=/path/to/audio_io.yaml \
+  namespace:=robot1
+```
+
+参数文件的顶层 key 应与节点名匹配：
+
+- 无 namespace：`audio_io:`
+- 有 namespace：`/robot1/audio_io:`（或使用 `/**` 通配）
 
 ### 快速示例
 
 播放一个 WAV/MP3 文件：
 
 ```bash
-ros2 topic pub --once /audio/io/play audio_io_interface/msg/AudioClip \
+ros2 topic pub --once /audio_io/play audio_io_interface/msg/AudioClip \
   "{uri: 'file:///tmp/robot_start_3s.mp3', gain: 0.8, priority: 3, policy: 0, group: 'voice'}"
 ```
 
 查看状态与事件：
 
 ```bash
-ros2 topic echo /audio/io/state
-ros2 topic echo /audio/io/event
+ros2 topic echo /audio_io/state
+ros2 topic echo /audio_io/event
 ```
 
 采集麦克风：
 
 ```bash
-ros2 topic hz /audio/io/capture
-ros2 topic echo /audio/io/capture --once
+ros2 topic hz /audio_io/capture
+ros2 topic echo /audio_io/capture --once
 ```
 
 ## 话题
