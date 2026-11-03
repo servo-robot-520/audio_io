@@ -202,6 +202,10 @@ namespace audio_io {
         }
         timer_ = node_->create_wall_timer(std::chrono::milliseconds(100),
                                          [this] { poll(); });
+        // 采集 chunk 通常每 10~20 ms 到达；独立定时器发布，避免状态定时器把
+        // 多个 chunk 攒到一次 burst 里，给下游增加无谓延迟。
+        capture_timer_ = node_->create_wall_timer(std::chrono::milliseconds(10),
+                                                 [this] { publish_capture(); });
         started_ = true;
         LOG_INFO("audio_io started");
     }
@@ -214,6 +218,10 @@ namespace audio_io {
         if (timer_) {
             timer_->cancel();
             timer_.reset();
+        }
+        if (capture_timer_) {
+            capture_timer_->cancel();
+            capture_timer_.reset();
         }
         if (capture_) {
             capture_->stop();
@@ -348,7 +356,6 @@ namespace audio_io {
 
     void AudioIoNode::poll() {
         publish_events();
-        publish_capture();
         publish_state();
         poll_actions();
     }

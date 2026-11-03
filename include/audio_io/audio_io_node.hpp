@@ -109,6 +109,7 @@ namespace audio_io {
         rclcpp::Service<audio_io_interface::srv::SetVolume>::SharedPtr volume_service_;
         rclcpp_action::Server<PlayClipAction>::SharedPtr action_server_;
         rclcpp::TimerBase::SharedPtr timer_;
+        rclcpp::TimerBase::SharedPtr capture_timer_;
 
         std::atomic<uint64_t> capture_sequence_{0};
         std::atomic<uint64_t> next_goal_id_{1};
