@@ -1,0 +1,25 @@
+io:
+  ros__parameters:
+    backend: alsa
+    playback:
+      device: "plughw:aic3104"
+      rate: 48000
+      channels: 1
+      period_ms: 10
+      buffer_ms: 40
+    capture:
+      enabled: true
+      device: ""
+      rate: 48000
+      channels: 1
+      period_ms: 10
+      buffer_ms: 40
+    stream:
+      timeout_ms: 200
+    volume: 1.0
+    mute: false
+    frame_id: "audio"
+    log:
+      log_level: info
+      log_path: ./log
+      async: false
