@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <chrono>
-#include <sstream>
 #include <thread>
 #include <utility>
 
@@ -24,7 +23,8 @@ namespace audio_io {
         sample_rate_(sample_rate),
         channels_(channels),
         period_ms_(period_ms),
-        buffer_ms_(buffer_ms) {}
+        buffer_ms_(buffer_ms) {
+    }
 
     AlsaSink::~AlsaSink() {
         close();
@@ -69,12 +69,12 @@ namespace audio_io {
         if (code >= 0) {
             // period 是 ALSA 一次中断/唤醒处理的最小块；buffer 是环形缓冲总长度。
             // period 越大越省 CPU、延迟越高；buffer 太小会更容易 underrun。
-            snd_pcm_uframes_t period = static_cast<snd_pcm_uframes_t>(
+            auto period = static_cast<snd_pcm_uframes_t>(
                 static_cast<uint64_t>(sample_rate_) * period_ms_ / 1000U);
             code = snd_pcm_hw_params_set_period_size_near(pcm, params, &period, nullptr);
         }
         if (code >= 0) {
-            snd_pcm_uframes_t buffer = static_cast<snd_pcm_uframes_t>(
+            auto buffer = static_cast<snd_pcm_uframes_t>(
                 static_cast<uint64_t>(sample_rate_) * buffer_ms_ / 1000U);
             code = snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer);
         }
@@ -128,8 +128,7 @@ namespace audio_io {
             if (result < 0) {
                 // EPIPE 表示 underrun：应用写得太慢，设备环形缓冲已经空了。
                 // snd_pcm_recover 会 prepare 设备，让我们可以继续写。
-                const int recovered = snd_pcm_recover(pcm, static_cast<int>(result), 1);
-                if (recovered < 0) {
+                if (const int recovered = snd_pcm_recover(pcm, static_cast<int>(result), 1); recovered < 0) {
                     error = alsa_error("snd_pcm_writei", static_cast<int>(result));
                     return false;
                 }
@@ -148,7 +147,9 @@ namespace audio_io {
         return device_;
     }
 
-    NullSink::NullSink(const uint32_t sample_rate) : sample_rate_(sample_rate) {}
+    NullSink::NullSink(const uint32_t sample_rate) :
+        sample_rate_(sample_rate) {
+    }
 
     bool NullSink::open(std::string& error) {
         open_ = true;
@@ -172,7 +173,7 @@ namespace audio_io {
         }
         if (frames > 0 && sample_rate_ > 0) {
             const double seconds = static_cast<double>(frames) /
-                                   static_cast<double>(sample_rate_);
+                static_cast<double>(sample_rate_);
             std::this_thread::sleep_for(std::chrono::duration<double>(seconds));
         }
         return true;

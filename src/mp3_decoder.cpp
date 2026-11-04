@@ -3,7 +3,6 @@
 #include <mpg123.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <vector>
@@ -17,8 +16,9 @@ namespace audio_io {
         std::once_flag g_init_once;
 
         [[nodiscard]] std::string mpg123_error(mpg123_handle* handle, const int code) {
-            const char* text = handle != nullptr ? mpg123_strerror(handle)
-                                                 : mpg123_plain_strerror(code);
+            const char* text = handle != nullptr
+                ? mpg123_strerror(handle)
+                : mpg123_plain_strerror(code);
             return text != nullptr ? std::string{text} : std::string{"unknown mpg123 error"};
         }
 
@@ -34,7 +34,7 @@ namespace audio_io {
                 return false;
             }
             return mpg123_format(handle, rate, channels, MPG123_ENC_SIGNED_16) ==
-                   MPG123_OK;
+                MPG123_OK;
         }
 
     } // namespace
@@ -48,21 +48,21 @@ namespace audio_io {
         });
 
         int error = MPG123_OK;
-        Mpg123Handle handle(mpg123_new(nullptr, &error), &mpg123_delete);
+        const Mpg123Handle handle(mpg123_new(nullptr, &error), &mpg123_delete);
         if (!handle) {
             return std::unexpected("mpg123_new failed: " + mpg123_error(nullptr, error));
         }
 
         if (mpg123_open(handle.get(), path.c_str()) != MPG123_OK) {
             return std::unexpected("mpg123_open failed for " + path + ": " +
-                                   mpg123_error(handle.get(), MPG123_ERR));
+                mpg123_error(handle.get(), MPG123_ERR));
         }
 
         long rate = 0;
         int channels = 0;
         if (!configure_signed16(handle.get(), rate, channels)) {
             return std::unexpected("mpg123 cannot configure S16 output for " + path +
-                                   ": " + mpg123_error(handle.get(), MPG123_ERR));
+                ": " + mpg123_error(handle.get(), MPG123_ERR));
         }
         if (rate <= 0 || channels <= 0) {
             return std::unexpected("mpg123 returned invalid format for " + path);
@@ -77,31 +77,31 @@ namespace audio_io {
 
         while (true) {
             size_t done = 0;
-            const int result = mpg123_read(handle.get(), pcm.data(), pcm.size(), &done);
-            if (result == MPG123_OK) {
+            if (const int result = mpg123_read(handle.get(), pcm.data(), pcm.size(), &done); result == MPG123_OK) {
                 // S16_LE：两个字节一个样本，按小端还原为有符号 16-bit。
                 for (size_t offset = 0; offset + 1 < done; offset += 2) {
                     const auto raw = static_cast<uint16_t>(pcm[offset]) |
-                                     static_cast<uint16_t>(
-                                         static_cast<uint16_t>(pcm[offset + 1]) << 8U);
+                        static_cast<uint16_t>(
+                            static_cast<uint16_t>(pcm[offset + 1]) << 8U);
                     buffer.samples.push_back(
                         static_cast<float>(static_cast<int16_t>(raw)) / 32768.0F);
                 }
                 if (done == 0) {
                     break;
                 }
-            } else if (result == MPG123_NEW_FORMAT) {
+            }
+            else if (result == MPG123_NEW_FORMAT) {
                 // 某些 MP3 中途切换采样率/声道数；重新配置并继续。
                 if (!configure_signed16(handle.get(), rate, channels)) {
                     return std::unexpected("mpg123 format change failed for " + path);
                 }
-            } else if (result == MPG123_DONE) {
+            }
+            else if (result == MPG123_DONE or result == MPG123_NEED_MORE) {
                 break;
-            } else if (result == MPG123_NEED_MORE) {
-                break;
-            } else {
+            }
+            else {
                 return std::unexpected("mpg123_read failed for " + path + ": " +
-                                       mpg123_error(handle.get(), result));
+                    mpg123_error(handle.get(), result));
             }
         }
 

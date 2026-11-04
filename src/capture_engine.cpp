@@ -28,7 +28,8 @@ namespace audio_io {
         sample_rate_(sample_rate),
         channels_(channels),
         period_ms_(period_ms),
-        buffer_ms_(buffer_ms) {}
+        buffer_ms_(buffer_ms) {
+    }
 
     CaptureEngine::~CaptureEngine() {
         stop();
@@ -38,7 +39,9 @@ namespace audio_io {
         if (running_.exchange(true)) {
             return;
         }
-        thread_ = std::thread([this] { run(); });
+        thread_ = std::thread([this] {
+            run();
+        });
     }
 
     void CaptureEngine::stop() {
@@ -91,12 +94,12 @@ namespace audio_io {
             code = snd_pcm_hw_params_set_rate_near(pcm, params, &rate, nullptr);
         }
         if (code >= 0) {
-            snd_pcm_uframes_t period = static_cast<snd_pcm_uframes_t>(
+            auto period = static_cast<snd_pcm_uframes_t>(
                 static_cast<uint64_t>(sample_rate_) * period_ms_ / 1000U);
             code = snd_pcm_hw_params_set_period_size_near(pcm, params, &period, nullptr);
         }
         if (code >= 0) {
-            snd_pcm_uframes_t buffer = static_cast<snd_pcm_uframes_t>(
+            auto buffer = static_cast<snd_pcm_uframes_t>(
                 static_cast<uint64_t>(sample_rate_) * buffer_ms_ / 1000U);
             code = snd_pcm_hw_params_set_buffer_size_near(pcm, params, &buffer);
         }
@@ -136,15 +139,16 @@ namespace audio_io {
 
         while (running_.load()) {
             if (pcm_ == nullptr) {
-                std::string error;
-                if (!open_device(error)) {
+                if (std::string error; !open_device(error)) {
                     ok_.store(false);
                     {
                         std::scoped_lock lock(mutex_);
                         error_ = error;
                         if (!lost_reported) {
-                            events_.push_back(AudioIoEvent{
-                                {}, EventMsg::EVENT_DEVICE_LOST, error});
+                            events_.push_back(
+                                AudioIoEvent{.request_id = {},
+                                             .type = EventMsg::EVENT_DEVICE_LOST,
+                                             .detail = error});
                             LOG_ERROR("audio_io capture device open failed: {}", error);
                             lost_reported = true;
                         }
@@ -157,8 +161,10 @@ namespace audio_io {
                     std::scoped_lock lock(mutex_);
                     error_.clear();
                     if (lost_reported) {
-                        events_.push_back(AudioIoEvent{
-                            {}, EventMsg::EVENT_DEVICE_RECOVERED, device_});
+                        events_.push_back(
+                            AudioIoEvent{.request_id = {},
+                                         .type = EventMsg::EVENT_DEVICE_RECOVERED,
+                                         .detail = device_});
                         lost_reported = false;
                     }
                 }
@@ -169,15 +175,16 @@ namespace audio_io {
             auto* pcm = static_cast<snd_pcm_t*>(pcm_);
             const snd_pcm_sframes_t read = snd_pcm_readi(pcm, chunk.data(), frames);
             if (read < 0) {
-                const int recovered = snd_pcm_recover(pcm, static_cast<int>(read), 1);
-                if (recovered < 0) {
+                if (const int recovered = snd_pcm_recover(pcm, static_cast<int>(read), 1); recovered < 0) {
                     const std::string error = alsa_error("snd_pcm_readi", static_cast<int>(read));
                     ok_.store(false);
                     close_device();
                     std::scoped_lock lock(mutex_);
                     error_ = error;
-                    events_.push_back(AudioIoEvent{
-                        {}, EventMsg::EVENT_DEVICE_LOST, error});
+                    events_.push_back(
+                        AudioIoEvent{.request_id = {},
+                                     .type = EventMsg::EVENT_DEVICE_LOST,
+                                     .detail = error});
                     lost_reported = true;
                     continue;
                 }

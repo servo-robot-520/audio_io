@@ -4,10 +4,8 @@
 #include <bit>
 #include <chrono>
 #include <cmath>
-#include <cstring>
 #include <filesystem>
 #include <format>
-#include <limits>
 #include <utility>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -26,14 +24,14 @@ namespace audio_io {
 
         [[nodiscard]] uint16_t read_u16(const uint8_t* data) noexcept {
             return static_cast<uint16_t>(data[0]) |
-                   static_cast<uint16_t>(static_cast<uint16_t>(data[1]) << 8U);
+                static_cast<uint16_t>(static_cast<uint16_t>(data[1]) << 8U);
         }
 
         [[nodiscard]] uint32_t read_u32(const uint8_t* data) noexcept {
             return static_cast<uint32_t>(data[0]) |
-                   (static_cast<uint32_t>(data[1]) << 8U) |
-                   (static_cast<uint32_t>(data[2]) << 16U) |
-                   (static_cast<uint32_t>(data[3]) << 24U);
+                (static_cast<uint32_t>(data[1]) << 8U) |
+                (static_cast<uint32_t>(data[2]) << 16U) |
+                (static_cast<uint32_t>(data[3]) << 24U);
         }
 
         [[nodiscard]] float clamp_gain(const float value) noexcept {
@@ -80,7 +78,8 @@ namespace audio_io {
         sample_rate_(sample_rate),
         channels_(channels),
         period_ms_(period_ms),
-        stream_timeout_ms_(stream_timeout_ms) {}
+        stream_timeout_ms_(stream_timeout_ms) {
+    }
 
     PlaybackEngine::~PlaybackEngine() {
         stop();
@@ -90,7 +89,9 @@ namespace audio_io {
         if (running_.exchange(true)) {
             return;
         }
-        thread_ = std::thread([this] { run(); });
+        thread_ = std::thread([this] {
+            run();
+        });
     }
 
     void PlaybackEngine::stop() {
@@ -136,7 +137,7 @@ namespace audio_io {
     }
 
     bool PlaybackEngine::decode_clip(const ClipRequest& request, Source& source,
-                                     std::string& error) const {
+                                     std::string& error) {
         const std::string path = resolve_uri(request.uri, error);
         if (path.empty()) {
             return false;
@@ -155,10 +156,9 @@ namespace audio_io {
     }
 
     bool PlaybackEngine::convert_stream(const StreamRequest& request, Source& source,
-                                         std::string& error) const {
+                                        std::string& error) {
         const std::size_t bytes_per_sample =
-            request.encoding == "s16le" ? 2U :
-            request.encoding == "f32le" ? 4U : 0U;
+            request.encoding == "s16le" ? 2U : request.encoding == "f32le" ? 4U : 0U;
         if (bytes_per_sample == 0U) {
             error = "unsupported stream encoding: " + request.encoding;
             return false;
@@ -182,13 +182,14 @@ namespace audio_io {
         for (std::size_t frame = 0; frame < frames; ++frame) {
             for (std::size_t channel = 0; channel < request.channels; ++channel) {
                 const std::size_t offset = frame * frame_bytes +
-                                           channel * bytes_per_sample;
+                    channel * bytes_per_sample;
                 float sample = 0.0F;
                 if (request.encoding == "s16le") {
                     sample = static_cast<float>(
-                        static_cast<int16_t>(read_u16(request.data.data() + offset))) /
-                             32768.0F;
-                } else {
+                            static_cast<int16_t>(read_u16(request.data.data() + offset))) /
+                        32768.0F;
+                }
+                else {
                     sample = std::bit_cast<float>(read_u32(request.data.data() + offset));
                 }
                 buffer.samples[frame * request.channels + channel] = sample;
@@ -212,17 +213,16 @@ namespace audio_io {
         source->gain = clamp_gain(request.gain);
         source->loop = request.loop;
 
-        std::string error;
-        if (!decode_clip(request, *source, error)) {
+        if (std::string error; !decode_clip(request, *source, error)) {
             std::scoped_lock lock(mutex_);
             push_event_locked(request_id, EventMsg::EVENT_DECODE_FAILED, error);
-            return ApiResult{false, request_id, error};
+            return ApiResult{.accepted = false, .request_id = request_id, .error = error};
         }
 
         source->start_frame = std::min(
             source->samples.size(),
             static_cast<std::size_t>(std::max(0.0, request.start_offset) *
-                                     static_cast<double>(sample_rate_)));
+                static_cast<double>(sample_rate_)));
         source->cursor = source->start_frame;
         source->end_frame = source->samples.size();
         if (request.duration > 0.0) {
@@ -234,17 +234,19 @@ namespace audio_io {
             std::scoped_lock lock(mutex_);
             push_event_locked(request_id, EventMsg::EVENT_DECODE_FAILED,
                               "clip start_offset/duration leaves no samples");
-            return ApiResult{false, request_id, "clip start_offset/duration leaves no samples"};
+            return ApiResult{.accepted = false,
+                             .request_id = request_id,
+                             .error = "clip start_offset/duration leaves no samples"};
         }
         source->duration = static_cast<float>(source->end_frame - source->start_frame) /
-                           static_cast<float>(sample_rate_);
+            static_cast<float>(sample_rate_);
 
         {
             std::scoped_lock lock(mutex_);
             apply_policy_locked(*source);
             sources_.push_back(std::move(source));
         }
-        return ApiResult{true, request_id, {}};
+        return ApiResult{.accepted = true, .request_id = request_id, .error = {}};
     }
 
     ApiResult PlaybackEngine::enqueue_stream(const StreamRequest& request) {
@@ -253,11 +255,10 @@ namespace audio_io {
 
         Source temp;
         temp.request_id = request_id;
-        std::string error;
-        if (!convert_stream(request, temp, error)) {
+        if (std::string error; !convert_stream(request, temp, error)) {
             std::scoped_lock lock(mutex_);
             push_event_locked(request_id, EventMsg::EVENT_DECODE_FAILED, error);
-            return ApiResult{false, request_id, error};
+            return ApiResult{.accepted = false, .request_id = request_id, .error = error};
         }
 
         std::scoped_lock lock(mutex_);
@@ -266,9 +267,10 @@ namespace audio_io {
         std::erase_if(sources_, [&](const SourcePtr& source) {
             return source->request_id == request_id && source->finished;
         });
-        const auto existing = std::find_if(
-            sources_.begin(), sources_.end(),
-            [&](const SourcePtr& source) { return source->request_id == request_id; });
+        const auto existing = std::ranges::find_if(sources_,
+                                                   [&](const SourcePtr& source) {
+                                                       return source->request_id == request_id;
+                                                   });
         if (existing != sources_.end()) {
             auto& source = **existing;
             source.stream_samples.insert(source.stream_samples.end(),
@@ -279,7 +281,7 @@ namespace audio_io {
             if (request.eos && source.stream_samples.empty()) {
                 finish_locked(source, true, "stream ended", EventMsg::EVENT_FINISHED);
             }
-            return ApiResult{true, request_id, {}};
+            return ApiResult{.accepted = true, .request_id = request_id, .error = {}};
         }
 
         auto source = std::make_shared<Source>();
@@ -297,7 +299,7 @@ namespace audio_io {
             finish_locked(*sources_.back(), true, "stream ended",
                           EventMsg::EVENT_FINISHED);
         }
-        return ApiResult{true, request_id, {}};
+        return ApiResult{.accepted = true, .request_id = request_id, .error = {}};
     }
 
     void PlaybackEngine::cancel(const std::string_view request_id) {
@@ -342,7 +344,7 @@ namespace audio_io {
             status.success = source->success;
             status.message = source->message;
             status.position = static_cast<float>(source->played_frames) /
-                              static_cast<float>(sample_rate_);
+                static_cast<float>(sample_rate_);
             status.duration = source->duration;
             return status;
         }
@@ -381,7 +383,7 @@ namespace audio_io {
                 state.request_id = source->request_id;
                 state.uri = source->uri;
                 state.position = static_cast<float>(source->played_frames) /
-                                 static_cast<float>(sample_rate_);
+                    static_cast<float>(sample_rate_);
                 state.duration = source->duration;
             }
         }
@@ -396,8 +398,9 @@ namespace audio_io {
             if (incoming.policy == ClipMsg::POLICY_PREEMPT &&
                 source->priority <= incoming.priority) {
                 finish_locked(*source, false, "preempted", EventMsg::EVENT_PREEMPTED);
-            } else if (incoming.policy == ClipMsg::POLICY_REPLACE_SAME_GROUP &&
-                       !incoming.group.empty() && source->group == incoming.group) {
+            }
+            else if (incoming.policy == ClipMsg::POLICY_REPLACE_SAME_GROUP &&
+                !incoming.group.empty() && source->group == incoming.group) {
                 finish_locked(*source, false, "replaced", EventMsg::EVENT_PREEMPTED);
             }
         }
@@ -417,7 +420,9 @@ namespace audio_io {
 
     void PlaybackEngine::push_event_locked(std::string request_id, const uint8_t type,
                                            std::string detail) {
-        events_.push_back(AudioIoEvent{std::move(request_id), type, std::move(detail)});
+        events_.push_back(AudioIoEvent{.request_id = std::move(request_id),
+                                       .type = type,
+                                       .detail = std::move(detail)});
         // 事件只是诊断/状态通知，丢旧事件比无限增长更安全。
         constexpr std::size_t kMaxEvents = 256;
         while (events_.size() > kMaxEvents) {
@@ -430,7 +435,7 @@ namespace audio_io {
         // output 是交错 PCM：每帧有 channels_ 个样本。内部混音始终是单声道，
         // channels_ > 1 时把同一个样本复制到每个输出声道（dual mono），
         // 这不等于立体声内容。
-        std::fill(output, output + frames * channels_, static_cast<int16_t>(0));
+        std::fill_n(output, frames * channels_, static_cast<int16_t>(0));
 
         bool any_started = false;
         for (const auto& source : sources_) {
@@ -465,19 +470,23 @@ namespace audio_io {
                     if (!source->stream_samples.empty()) {
                         sample = source->stream_samples.front();
                         source->stream_samples.pop_front();
-                    } else if (source->eos) {
+                    }
+                    else if (source->eos) {
                         finish_locked(*source, true, "stream ended",
                                       EventMsg::EVENT_FINISHED);
                         break;
-                    } else {
+                    }
+                    else {
                         // 流暂时没有数据：补静音，但一个 block 只计一次欠载。
                         starved = true;
                     }
-                } else {
+                }
+                else {
                     if (source->cursor >= source->end_frame) {
                         if (source->loop && source->end_frame > source->start_frame) {
                             source->cursor = source->start_frame;
-                        } else {
+                        }
+                        else {
                             finish_locked(*source, true, "finished",
                                           EventMsg::EVENT_FINISHED);
                             break;
@@ -494,7 +503,7 @@ namespace audio_io {
 
             if (source->stream && !source->eos && source->stream_samples.empty() &&
                 now - source->last_data >
-                    std::chrono::milliseconds(stream_timeout_ms_)) {
+                std::chrono::milliseconds(stream_timeout_ms_)) {
                 finish_locked(*source, false, "stream timeout",
                               EventMsg::EVENT_FAILED);
             }
@@ -519,8 +528,7 @@ namespace audio_io {
 
         while (running_.load()) {
             if (!sink_->is_open()) {
-                std::string error;
-                if (!sink_->open(error)) {
+                if (std::string error; !sink_->open(error)) {
                     if (!lost_reported) {
                         LOG_ERROR("audio_io playback device open failed: {}", error);
                         lost_reported = true;
@@ -543,8 +551,7 @@ namespace audio_io {
 
             mix_block(block.data(), frames);
 
-            std::string error;
-            if (!sink_->write(block.data(), frames, error)) {
+            if (std::string error; !sink_->write(block.data(), frames, error)) {
                 LOG_ERROR("audio_io playback write failed: {}", error);
                 playback_ok_.store(false);
                 sink_->close();

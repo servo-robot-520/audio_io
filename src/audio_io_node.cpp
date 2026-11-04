@@ -31,7 +31,8 @@ namespace audio_io {
 
     } // namespace
 
-    AudioIoNode::AudioIoNode(rclcpp::Node::SharedPtr node) : node_(std::move(node)) {
+    AudioIoNode::AudioIoNode(rclcpp::Node::SharedPtr node) :
+        node_(std::move(node)) {
         if (!node_) {
             throw std::runtime_error("AudioIoNode requires a non-null rclcpp::Node");
         }
@@ -45,7 +46,8 @@ namespace audio_io {
                 std::make_unique<NullSink>(playback_rate_),
                 playback_rate_, playback_channels_, playback_period_ms_,
                 stream_timeout_ms_);
-        } else {
+        }
+        else {
             playback_ = std::make_unique<PlaybackEngine>(
                 std::make_unique<AlsaSink>(playback_device_, playback_rate_,
                                            playback_channels_, playback_period_ms_,
@@ -144,8 +146,8 @@ namespace audio_io {
             throw std::runtime_error("stream.timeout_ms must be in [50, 5000]");
         }
 
-        const double volume = get_or_declare_parameter<double>(node_, "volume", 1.0);
-        if (volume < 0.0 || volume > 1.0) {
+        if (const auto volume = get_or_declare_parameter<double>(node_, "volume", 1.0);
+            volume < 0.0 || volume > 1.0) {
             throw std::runtime_error("volume must be in [0.0, 1.0]");
         }
     }
@@ -177,22 +179,22 @@ namespace audio_io {
 
         stop_service_ = node_->create_service<audio_io_interface::srv::StopAudio>(
             std::string{audio_io_interface::kPrivateServiceStop},
-            [this](const std::shared_ptr<audio_io_interface::srv::StopAudio::Request> request,
-                   std::shared_ptr<audio_io_interface::srv::StopAudio::Response> response) {
-                handle_stop(request, std::move(response));
+            [this](const std::shared_ptr<audio_io_interface::srv::StopAudio::Request>& request,
+                   const std::shared_ptr<audio_io_interface::srv::StopAudio::Response>& response) {
+                handle_stop(request, response);
             });
         volume_service_ = node_->create_service<audio_io_interface::srv::SetVolume>(
             std::string{audio_io_interface::kPrivateServiceSetVolume},
-            [this](const std::shared_ptr<audio_io_interface::srv::SetVolume::Request> request,
-                   std::shared_ptr<audio_io_interface::srv::SetVolume::Response> response) {
-                handle_set_volume(request, std::move(response));
+            [this](const std::shared_ptr<audio_io_interface::srv::SetVolume::Request>& request,
+                   const std::shared_ptr<audio_io_interface::srv::SetVolume::Response>& response) {
+                handle_set_volume(request, response);
             });
 
         action_server_ = rclcpp_action::create_server<PlayClipAction>(
             node_, std::string{audio_io_interface::kPrivateActionPlayClip},
             [this](const rclcpp_action::GoalUUID& uuid,
-                   std::shared_ptr<const PlayClipAction::Goal> goal) {
-                return handle_goal(uuid, std::move(goal));
+                   const std::shared_ptr<const PlayClipAction::Goal>& goal) {
+                return handle_goal(uuid, goal);
             },
             [this](const std::shared_ptr<GoalHandlePlayClip>& goal_handle) {
                 return handle_cancel(goal_handle);
@@ -211,11 +213,15 @@ namespace audio_io {
             capture_->start();
         }
         timer_ = node_->create_wall_timer(std::chrono::milliseconds(100),
-                                         [this] { poll(); });
+                                          [this] {
+                                              poll();
+                                          });
         // 采集 chunk 通常每 10~20 ms 到达；独立定时器发布，避免状态定时器把
         // 多个 chunk 攒到一次 burst 里，给下游增加无谓延迟。
         capture_timer_ = node_->create_wall_timer(std::chrono::milliseconds(10),
-                                                 [this] { publish_capture(); });
+                                                  [this] {
+                                                      publish_capture();
+                                                  });
         started_ = true;
         LOG_INFO("audio_io started");
     }
@@ -241,7 +247,7 @@ namespace audio_io {
         LOG_INFO("audio_io stopped");
     }
 
-    void AudioIoNode::handle_play(const AudioClipMsg::SharedPtr message) {
+    void AudioIoNode::handle_play(const AudioClipMsg::SharedPtr& message) const {
         ClipRequest request;
         request.request_id = message->request_id;
         request.uri = message->uri;
@@ -253,13 +259,12 @@ namespace audio_io {
         request.start_offset = message->start_offset;
         request.duration = message->duration;
 
-        const auto result = playback_->enqueue_clip(request);
-        if (!result.accepted) {
+        if (const auto result = playback_->enqueue_clip(request); !result.accepted) {
             LOG_ERROR("audio_io play request rejected: {}", result.error);
         }
     }
 
-    void AudioIoNode::handle_stream(const AudioStreamMsg::SharedPtr message) {
+    void AudioIoNode::handle_stream(const AudioStreamMsg::SharedPtr& message) const {
         LOG_DEBUG("audio_io stream received: id={} bytes={} eos={}",
                   message->stream_id, message->data.size(), message->eos);
         StreamRequest request;
@@ -275,23 +280,22 @@ namespace audio_io {
         request.policy = AudioClipMsg::POLICY_MIX;
         request.group = "stream";
 
-        const auto result = playback_->enqueue_stream(request);
-        if (!result.accepted) {
+        if (const auto result = playback_->enqueue_stream(request); !result.accepted) {
             LOG_ERROR("audio_io stream request rejected: {}", result.error);
         }
     }
 
     void AudioIoNode::handle_stop(
-        const std::shared_ptr<audio_io_interface::srv::StopAudio::Request> request,
-        std::shared_ptr<audio_io_interface::srv::StopAudio::Response> response) {
+        const std::shared_ptr<audio_io_interface::srv::StopAudio::Request>& request,
+        const std::shared_ptr<audio_io_interface::srv::StopAudio::Response>& response) const {
         response->stopped = playback_->stop_group(request->group, request->all);
         response->success = true;
         response->message = response->stopped > 0 ? "stopped" : "nothing to stop";
     }
 
     void AudioIoNode::handle_set_volume(
-        const std::shared_ptr<audio_io_interface::srv::SetVolume::Request> request,
-        std::shared_ptr<audio_io_interface::srv::SetVolume::Response> response) {
+        const std::shared_ptr<audio_io_interface::srv::SetVolume::Request>& request,
+        const std::shared_ptr<audio_io_interface::srv::SetVolume::Response>& response) const {
         const float volume = std::clamp(request->volume, 0.0F, 1.0F);
         playback_->set_volume(volume, request->mute);
         response->success = true;
@@ -300,9 +304,8 @@ namespace audio_io {
         response->message = "volume updated";
     }
 
-    rclcpp_action::GoalResponse AudioIoNode::handle_goal(
-        const rclcpp_action::GoalUUID& /*uuid*/,
-        std::shared_ptr<const PlayClipAction::Goal> goal) {
+    rclcpp_action::GoalResponse AudioIoNode::handle_goal(const rclcpp_action::GoalUUID& /*uuid*/,
+                                                         const std::shared_ptr<const PlayClipAction::Goal>& goal) {
         if (goal->clip.uri.empty()) {
             LOG_ERROR("audio_io play_clip goal rejected: empty uri");
             return rclcpp_action::GoalResponse::REJECT;
@@ -346,9 +349,8 @@ namespace audio_io {
         request.start_offset = goal->clip.start_offset;
         request.duration = goal->clip.duration;
 
-        const auto result = playback_->enqueue_clip(request);
-        if (!result.accepted) {
-            auto action_result = std::make_shared<PlayClipAction::Result>();
+        if (const auto result = playback_->enqueue_clip(request); !result.accepted) {
+            const auto action_result = std::make_shared<PlayClipAction::Result>();
             action_result->request_id = request_id;
             action_result->success = false;
             action_result->message = result.error;
@@ -371,39 +373,42 @@ namespace audio_io {
     }
 
     void AudioIoNode::publish_state() {
-        const PlaybackState playback = playback_->state();
+        const auto [playback_ok, has_active, request_id, uri, position, duration, queue_depth, underruns] = playback_->state();
         AudioStateMsg message;
-        if (!playback.playback_ok) {
+        if (!playback_ok) {
             message.state = "error";
-        } else if (capture_ && !capture_->ok()) {
+        }
+        else if (capture_ && !capture_->ok()) {
             message.state = "degraded";
-        } else if (playback.has_active) {
+        }
+        else if (has_active) {
             message.state = "playing";
-        } else {
+        }
+        else {
             message.state = "idle";
         }
         message.playback_device = playback_device_;
         message.capture_device = capture_ ? capture_device_ : std::string{};
-        message.request_id = playback.request_id;
-        message.uri = playback.uri;
-        message.position = playback.position;
-        message.duration = playback.duration;
-        message.queue_depth = playback.queue_depth;
-        message.underruns = playback.underruns;
+        message.request_id = request_id;
+        message.uri = uri;
+        message.position = position;
+        message.duration = duration;
+        message.queue_depth = queue_depth;
+        message.underruns = underruns;
         message.capture_ok = capture_ && capture_->ok();
         message.capture_error = capture_ ? capture_->error() : "capture disabled";
         state_publisher_->publish(message);
     }
 
-    void AudioIoNode::publish_events() {
+    void AudioIoNode::publish_events() const {
         const auto publish = [this](const std::vector<AudioIoEvent>& events) {
-            for (const auto& event : events) {
+            for (const auto& [request_id, type, detail] : events) {
                 AudioEventMsg message;
                 message.header.stamp = node_->now();
                 message.header.frame_id = frame_id_;
-                message.request_id = event.request_id;
-                message.event = event.type;
-                message.detail = event.detail;
+                message.request_id = request_id;
+                message.event = type;
+                message.detail = detail;
                 event_publisher_->publish(message);
             }
         };
@@ -455,15 +460,15 @@ namespace audio_io {
             std::scoped_lock lock(goals_mutex_);
             goals.reserve(goals_.size());
             for (const auto& entry : goals_) {
-                goals.push_back(entry);
+                goals.emplace_back(entry);
             }
         }
 
         for (const auto& [request_id, goal_handle] : goals) {
-            const auto status = playback_->status(request_id);
+            const auto [found, active, finished, success, message, position, duration] = playback_->status(request_id);
 
             if (goal_handle->is_canceling()) {
-                auto result = std::make_shared<PlayClipAction::Result>();
+                const auto result = std::make_shared<PlayClipAction::Result>();
                 result->request_id = request_id;
                 result->success = false;
                 result->message = "canceled";
@@ -476,8 +481,8 @@ namespace audio_io {
                 continue;
             }
 
-            if (!status.found) {
-                auto result = std::make_shared<PlayClipAction::Result>();
+            if (!found) {
+                const auto result = std::make_shared<PlayClipAction::Result>();
                 result->request_id = request_id;
                 result->success = false;
                 result->message = "request not found";
@@ -489,14 +494,15 @@ namespace audio_io {
                 continue;
             }
 
-            if (status.finished) {
-                auto result = std::make_shared<PlayClipAction::Result>();
+            if (finished) {
+                const auto result = std::make_shared<PlayClipAction::Result>();
                 result->request_id = request_id;
-                result->success = status.success;
-                result->message = status.message;
-                if (status.success) {
+                result->success = success;
+                result->message = message;
+                if (success) {
                     goal_handle->succeed(result);
-                } else {
+                }
+                else {
                     goal_handle->abort(result);
                 }
                 {
@@ -507,12 +513,12 @@ namespace audio_io {
                 continue;
             }
 
-            if (status.active) {
-                auto feedback = std::make_shared<PlayClipAction::Feedback>();
-                feedback->position = status.position;
-                feedback->progress = status.duration > 0.0F
-                                         ? std::clamp(status.position / status.duration, 0.0F, 1.0F)
-                                         : 0.0F;
+            if (active) {
+                const auto feedback = std::make_shared<PlayClipAction::Feedback>();
+                feedback->position = position;
+                feedback->progress = duration > 0.0F
+                    ? std::clamp(position / duration, 0.0F, 1.0F)
+                    : 0.0F;
                 goal_handle->publish_feedback(feedback);
             }
         }

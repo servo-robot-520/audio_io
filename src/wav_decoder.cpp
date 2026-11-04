@@ -5,7 +5,6 @@
 #include <cmath>
 #include <cstring>
 #include <fstream>
-#include <limits>
 #include <stdexcept>
 
 namespace audio_io {
@@ -63,7 +62,7 @@ namespace audio_io {
             switch (bits) {
             case 8:
                 // 8-bit WAV 是无符号数，128 为静音中点。
-                return (static_cast<int32_t>(data[0]) - 128) / 128.0F;
+                return (static_cast<float>(data[0]) - 128) / 128.0F;
             case 16:
                 return static_cast<float>(static_cast<int16_t>(read_u16(data))) / 32768.0F;
             case 24:
@@ -109,7 +108,7 @@ namespace audio_io {
             const double source_position = static_cast<double>(i) * ratio;
             const auto index = static_cast<std::size_t>(source_position);
             const auto next = std::min(index + 1, mono.size() - 1);
-            const float fraction = static_cast<float>(source_position -
+            const auto fraction = static_cast<float>(source_position -
                                                       static_cast<double>(index));
             resampled[i] = mono[index] + (mono[next] - mono[index]) * fraction;
         }

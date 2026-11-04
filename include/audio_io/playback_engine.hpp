@@ -1,8 +1,6 @@
 #pragma once
 
-#include <array>
 #include <atomic>
-#include <cstdint>
 #include <deque>
 #include <memory>
 #include <mutex>
@@ -131,10 +129,10 @@ namespace audio_io {
         void push_event_locked(std::string request_id, uint8_t type, std::string detail);
 
         [[nodiscard]] std::string make_request_id();
-        [[nodiscard]] bool decode_clip(const ClipRequest& request, Source& source,
-                                       std::string& error) const;
-        [[nodiscard]] bool convert_stream(const StreamRequest& request, Source& source,
-                                          std::string& error) const;
+        static [[nodiscard]] bool decode_clip(const ClipRequest& request, Source& source,
+                                       std::string& error) ;
+        static [[nodiscard]] bool convert_stream(const StreamRequest& request, Source& source,
+                                          std::string& error) ;
         [[nodiscard]] static std::string resolve_uri(const std::string& uri,
                                                      std::string& error);
 

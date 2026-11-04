@@ -1,7 +1,6 @@
 #pragma once
 
 #include <atomic>
-#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -58,24 +57,27 @@ namespace audio_io {
         void declare_parameters();
         void create_interfaces();
 
-        void handle_play(const audio_io_interface::msg::AudioClip::SharedPtr message);
-        void handle_stream(const audio_io_interface::msg::AudioStream::SharedPtr message);
-        void handle_stop(const std::shared_ptr<audio_io_interface::srv::StopAudio::Request> request,
-                         std::shared_ptr<audio_io_interface::srv::StopAudio::Response> response);
-        void handle_set_volume(
-            const std::shared_ptr<audio_io_interface::srv::SetVolume::Request> request,
-            std::shared_ptr<audio_io_interface::srv::SetVolume::Response> response);
+        void handle_play(const audio_io_interface::msg::AudioClip::SharedPtr& message) const;
 
-        rclcpp_action::GoalResponse handle_goal(
-            const rclcpp_action::GoalUUID& uuid,
-            std::shared_ptr<const PlayClipAction::Goal> goal);
+        void handle_stream(const audio_io_interface::msg::AudioStream::SharedPtr& message) const;
+
+        void handle_stop(const std::shared_ptr<audio_io_interface::srv::StopAudio::Request>& request,
+                         const std::shared_ptr<audio_io_interface::srv::StopAudio::Response>& response) const;
+
+        void handle_set_volume(const std::shared_ptr<audio_io_interface::srv::SetVolume::Request>& request,
+                               const std::shared_ptr<audio_io_interface::srv::SetVolume::Response>& response) const;
+
+        rclcpp_action::GoalResponse handle_goal(const rclcpp_action::GoalUUID& uuid,
+                                                const std::shared_ptr<const PlayClipAction::Goal>& goal);
+
         rclcpp_action::CancelResponse handle_cancel(
             const std::shared_ptr<GoalHandlePlayClip>& goal_handle);
+
         void handle_accepted(const std::shared_ptr<GoalHandlePlayClip>& goal_handle);
 
         void poll();
         void publish_state();
-        void publish_events();
+        void publish_events() const;
         void publish_capture();
         void poll_actions();
 
