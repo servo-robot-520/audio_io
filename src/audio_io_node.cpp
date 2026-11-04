@@ -420,7 +420,7 @@ namespace audio_io {
             message.stream_id = "mic";
             message.encoding = "s16le";
             message.sample_rate = capture_rate_;
-            message.channels = 1;
+            message.channels = capture_channels_;
             message.sequence = capture_sequence_.fetch_add(1);
             message.eos = false;
             message.data.resize(chunk.size() * sizeof(int16_t));
@@ -439,7 +439,7 @@ namespace audio_io {
         message.stream_id = "mic";
         message.encoding = "s16le";
         message.sample_rate = capture_rate_;
-        message.channels = 1;
+        message.channels = capture_channels_;
         message.sequence = capture_sequence_.fetch_add(1);
         message.eos = true;
         capture_publisher_->publish(message);
