@@ -122,8 +122,9 @@ namespace audio_io {
 
         std::size_t written = 0;
         while (written < frames) {
+            // samples 是交错 PCM：第 written 帧从 samples[written * channels] 开始。
             const snd_pcm_sframes_t result = snd_pcm_writei(
-                pcm, samples + written, frames - written);
+                pcm, samples + written * channels_, frames - written);
             if (result < 0) {
                 // EPIPE 表示 underrun：应用写得太慢，设备环形缓冲已经空了。
                 // snd_pcm_recover 会 prepare 设备，让我们可以继续写。

@@ -97,6 +97,10 @@ namespace audio_io {
             node_, "playback.device", "plughw:aic3104");
         playback_rate_ = static_cast<uint32_t>(get_or_declare_parameter<int>(
             node_, "playback.rate", 48000));
+        // 这是 ALSA 输出声道数，不是“内容是否立体声”。内部混音始终是单声道：
+        // channels=2 表示把同一个单声道复制到 L/R（dual mono），不是立体声；
+        // channels=1 只是以单声道 PCM 打开设备，最终是否两边喇叭都响由 ALSA
+        // plughw、codec 路由和接线决定，不能理解为只左/右。
         playback_channels_ = static_cast<uint16_t>(get_or_declare_parameter<int>(
             node_, "playback.channels", 1));
         playback_period_ms_ = static_cast<uint32_t>(get_or_declare_parameter<int>(

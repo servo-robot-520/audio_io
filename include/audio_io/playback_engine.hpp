@@ -140,6 +140,7 @@ namespace audio_io {
 
         std::unique_ptr<AudioSink> sink_;
         uint32_t sample_rate_;
+        /// ALSA 输出声道数。内部混音仍是单声道；>1 时复制到每个声道（dual mono）。
         uint16_t channels_;
         uint32_t period_ms_;
         uint32_t stream_timeout_ms_;

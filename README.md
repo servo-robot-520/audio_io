@@ -180,7 +180,7 @@ ros2 topic echo /audio_io/capture --once
 | `backend` | `alsa` | `alsa` 或 `null` |
 | `playback.device` | `plughw:aic3104` | ALSA 播放设备 |
 | `playback.rate` | `48000` | 内部采样率 |
-| `playback.channels` | `1` | 播放声道数 |
+| `playback.channels` | `1` | ALSA 输出声道数；1/2 都不是“立体声内容”，见下方说明 |
 | `playback.period_ms` | `10` | ALSA period |
 | `playback.buffer_ms` | `40` | ALSA buffer |
 | `capture.enabled` | `true` | 是否启用麦克风 |
@@ -193,6 +193,15 @@ ros2 topic echo /audio_io/capture --once
 | `volume` | `1.0` | 主音量 |
 | `mute` | `false` | 静音 |
 | `frame_id` | `audio` | 消息 frame_id |
+
+### `playback.channels` 的语义
+
+`playback.channels` 是 **ALSA 设备输出声道数**，不是“音频内容是否立体声”：
+
+- 内部解码和混音始终是 **48 kHz 单声道**；WAV/MP3/`AudioStream` 的多声道输入都会先下混。
+- `channels: 1`：以单声道 PCM 打开设备，由 ALSA `plughw` 适配到硬件。最终是否两个喇叭都响取决于 `plug` 转换、codec 路由和接线，**不能理解为只左/右喇叭发声**。
+- `channels: 2`：把同一个单声道复制到 L/R（dual mono），用于需要双声道设备帧格式的场合；**不是立体声**，左右内容相同。
+- 如果需要真正的左右独立立体声，需要单独实现保留声道的解码/混音路径，目前不支持。
 
 ## ALSA 说明
 

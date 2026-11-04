@@ -53,6 +53,7 @@ namespace audio_io {
     private:
         std::string device_;
         uint32_t sample_rate_;
+        /// 设备输出声道数，不是内容立体声；样本按 frames * channels 交错写入。
         uint16_t channels_;
         uint32_t period_ms_;
         uint32_t buffer_ms_;

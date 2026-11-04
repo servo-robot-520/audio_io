@@ -427,7 +427,10 @@ namespace audio_io {
 
     void PlaybackEngine::mix_block(int16_t* output, const std::size_t frames) {
         std::scoped_lock lock(mutex_);
-        std::fill(output, output + frames, static_cast<int16_t>(0));
+        // output 是交错 PCM：每帧有 channels_ 个样本。内部混音始终是单声道，
+        // channels_ > 1 时把同一个样本复制到每个输出声道（dual mono），
+        // 这不等于立体声内容。
+        std::fill(output, output + frames * channels_, static_cast<int16_t>(0));
 
         bool any_started = false;
         for (const auto& source : sources_) {
@@ -500,14 +503,18 @@ namespace audio_io {
         const float master = mute_.load() ? 0.0F : volume_.load();
         for (std::size_t i = 0; i < frames; ++i) {
             const float clipped = std::clamp(mix[i] * master, -1.0F, 1.0F);
-            output[i] = static_cast<int16_t>(std::lround(clipped * 32767.0F));
+            const auto pcm = static_cast<int16_t>(std::lround(clipped * 32767.0F));
+            // 单声道源复制到所有输出声道；不是左右独立内容。
+            for (std::size_t channel = 0; channel < channels_; ++channel) {
+                output[i * channels_ + channel] = pcm;
+            }
         }
     }
 
     void PlaybackEngine::run() {
         const auto frames = static_cast<std::size_t>(
             std::max<uint64_t>(1U, static_cast<uint64_t>(sample_rate_) * period_ms_ / 1000U));
-        std::vector<int16_t> block(frames, 0);
+        std::vector<int16_t> block(frames * channels_, 0);
         bool lost_reported = false;
 
         while (running_.load()) {
@@ -534,10 +541,10 @@ namespace audio_io {
                 LOG_INFO("audio_io playback device opened: {}", sink_->name());
             }
 
-            mix_block(block.data(), block.size());
+            mix_block(block.data(), frames);
 
             std::string error;
-            if (!sink_->write(block.data(), block.size(), error)) {
+            if (!sink_->write(block.data(), frames, error)) {
                 LOG_ERROR("audio_io playback write failed: {}", error);
                 playback_ok_.store(false);
                 sink_->close();
