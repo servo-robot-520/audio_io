@@ -4,7 +4,9 @@
 
 `audio_io` 是一个通用的 ROS 2 音频 I/O 功能包：让**一个进程独占音频设备**，其他节点只发送“播放什么、采集什么”的请求，不再各自打开 ALSA/PulseAudio/PipeWire。
 
-它不依赖 microduck 的鸭子语义，可以用于任何需要播放音频文件、播放实时 PCM、采集麦克风的 ROS 2 系统。典型用途：
+它不依赖 microduck 的鸭子语义，可以用于任何需要播放音频文件、播放实时 PCM、采集麦克风的 ROS 2 系统。详细描述见 [`docs/audio_io-architecture.zh-CN.md`](docs/audio_io-architecture.zh-CN.md)。
+
+典型用途：
 
 - 机器人提示音、语音播报、TTS 输出；
 - 实时合成音频流（乐器、歌声、传感器驱动的音效）；
